@@ -35,16 +35,16 @@ Demo de unos 12 minutos, siguiendo el orden de la rúbrica. Cada bloque dice **q
 
 ## 2. Arquitectura Multi-AZ (criterio 2) · 3 min
 **Muestra:** la Figura 1 del informe y después la consola.
-- **EC2:** "2 instancias, una en cada zona, **sin IP pública**."
-- **Target group:** "Los 2 destinos están *healthy*. El ALB revisa `/health` cada 10 segundos."
-- **Navegador `https://TU-FQDN/docs`:** haz clic en el candado. "Certificado válido de Amazon, sin advertencias."
+- **EC2:** "2 instancias, una en cada zona, **sin IP pública**, ejecutando los contenedores endurecidos del backend (8000) y del frontend (8080)."
+- **Target groups:** "Los 2 grupos de destino (API en `/health` y frontend en `/healthz`) tienen sus 2 nodos *healthy*. El ALB revisa cada 5 segundos."
+- **Navegador `https://TU-FQDN/` y `https://TU-FQDN/docs`:** haz clic en el candado. "Certificado válido de Amazon, sin advertencias; en `/` responde el frontend de admisión y en `/docs` la documentación interactiva Swagger."
 - **Terminal:**
   ```powershell
   curl.exe -I http://TU-FQDN/health
   ```
   "HTTP responde 301 y redirige a HTTPS."
 - **RDS:** "*Publicly accessible: No*, *Encryption: Enabled*, subnet group en 2 zonas."
-- **Security Groups:** abre `sg-app` → *Inbound rules*. "El origen no es una IP, es el Security Group del ALB. Y en `sg-db` el origen es `sg-app`. Eso es el encadenamiento."
+- **Security Groups:** abre `sg-app` → *Inbound rules*. "El origen no es una IP, es el Security Group del ALB (puertos 8000 y 8080). Y en `sg-db` el origen es `sg-app` (puerto 5432). Eso es el encadenamiento."
 
 | Si pregunta… | Responde |
 |---|---|
