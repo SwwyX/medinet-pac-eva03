@@ -1,8 +1,0 @@
-$ zap-api-scan.py -t http://pacapi:8000/openapi.json -f openapi   # DESPUES de corregir
-PASS: Cross Site Scripting (Reflected) [40012]
-PASS: Cross Site Scripting (Persistent) [40014]
-PASS: SQL Injection [40018]
-PASS: Path Traversal [6]
-PASS: Remote OS Command Injection [90020]
-PASS: Application Error Disclosure [90022]
-FAIL-NEW: 0	FAIL-INPROG: 0	WARN-NEW: 0	WARN-INPROG: 0	INFO: 0	IGNORE: 0	PASS: 120

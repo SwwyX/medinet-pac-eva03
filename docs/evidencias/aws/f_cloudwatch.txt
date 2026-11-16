@@ -1,9 +1,0 @@
-$ aws logs filter-log-events --log-group-name /medinet-pac/app   (eventos de auditoría de ambos nodos)
-node-a {"ts":"2026-11-16T06:39:27.93Z","node":"node-a","event":"auth.denied","outcome":"failure","actor":null,"reason":"missing_token","path":"/patients","method":"GET"}
-node-b {"ts":"2026-11-16T06:39:28.11Z","node":"node-b","event":"auth.denied","outcome":"failure","actor":null,"reason":"missing_token","path":"/patients","method":"POST"}
-node-a {"ts":"2026-11-16T06:40:14.81Z","node":"node-a","event":"patient.create","outcome":"failure","actor":"admision.demo","run_masked":"******38-5","status":409}
-node-b {"ts":"2026-11-16T06:40:14.81Z","node":"node-b","event":"patient.create","outcome":"failure","actor":"admision.demo","run_masked":"******38-5","status":409}
-node-a {"ts":"2026-11-16T06:40:15.03Z","node":"node-a","event":"patient.create","outcome":"success","actor":"admision.demo","patient_id":11,"run_masked":"******38-5"}
-
-Cada evento incluye además "module":"PAC" y el "request_id" del ALB (X-Amzn-Trace-Id), que permite correlacionar la solicitud entre nodos.
-El RUN siempre va enmascarado; no se registran nombres, emails, teléfonos ni direcciones.

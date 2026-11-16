@@ -1,4 +1,0 @@
-$ trivy image --severity CRITICAL,HIGH --ignore-unfixed medinet-pac:local
-medinet-pac:local (debian 13.7)
-===============================
-Total: 0 (HIGH: 0, CRITICAL: 0)

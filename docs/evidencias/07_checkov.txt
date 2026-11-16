@@ -1,9 +1,0 @@
-$ checkov --config-file .checkov.yaml
-terraform scan results:
-
-Passed checks: 198, Failed checks: 0, Skipped checks: 6
-
-      1 	SKIPPED for resource: aws_availability_zones.available
-      3 	SKIPPED for resource: aws_iam_policy_document.kms
-      2 	SKIPPED for resource: aws_route53_zone.main[0]
-      1 Passed checks: 198, Failed checks: 0, Skipped checks: 6
