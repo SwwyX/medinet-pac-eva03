@@ -1,12 +1,15 @@
-# Copiar a terraform.tfvars (está en .gitignore) y completar.
-region      = "us-east-1"
-domain_name = "pac.TU-DOMINIO.dpdns.org"
+# Copiar a terraform.tfvars (está en .gitignore):  cp terraform.tfvars.example terraform.tfvars
+region      = "us-east-2"
+domain_name = "medinetpacg6.dpdns.org"
 
-# Cuenta propia: false (crea roles IAM mínimos y OIDC para GitHub).
+# Cuenta propia: false (crea roles IAM mínimos).
 # AWS Academy: true (usa LabRole / LabInstanceProfile).
 aws_academy = false
 
-# owner/repo para que GitHub Actions despliegue sin llaves (solo cuenta propia).
-github_repository = "planbkid/MediNet-Core"
+# owner/repo para que GitHub Actions despliegue sin llaves (vacío = sin despliegue desde GitHub).
+github_repository = ""
 
 cors_origins = ""
+
+# La cuenta gratuita de AWS solo acepta 1 día de respaldo automático en RDS.
+db_backup_retention_days = 1
