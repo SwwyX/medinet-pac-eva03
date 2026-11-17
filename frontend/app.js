@@ -4,9 +4,11 @@
 
 const $ = (id) => document.getElementById(id);
 const PAGE_SIZE = 10;
-let token = sessionStorage.getItem('pac_token') || '';
+let token = '';
+let claims = null;
 let page = 1;
-let lastQuery = null;
+let lastQuery = {};
+let expiryTimer = null;
 
 // ---------- RUN chileno: normalización y Módulo 11 ----------
 function cleanRun(value) {
@@ -40,20 +42,26 @@ function runStatus(raw) {
   return { ok: true, msg: 'RUN válido.', normalized: body + '-' + dv };
 }
 
-// ---------- sesión ----------
-function decodeSubject(jwt) {
+// ---------- sesión (la credencial la emite IAM; PAC solo la usa) ----------
+function decodeClaims(jwt) {
   try {
     const part = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const data = JSON.parse(atob(part));
-    return (data.sub || 'usuario') + ' · ' + (data.roles || []).join(', ');
+    if (!data || typeof data !== 'object') return null;
+    return data;
   } catch (e) {
     return null;
   }
 }
-function showSession() {
-  const label = token ? decodeSubject(token) : null;
-  $('who').textContent = label ? 'Sesión: ' + label : 'Sin sesión';
-  $('who').className = 'who' + (label ? ' on' : '');
+function roleLabel(c) {
+  const roles = Array.isArray(c.roles) ? c.roles : [];
+  if (roles.includes('pac:write')) return 'Admisión';
+  if (roles.includes('pac:read')) return 'Solo lectura';
+  return 'Sin permisos PAC';
+}
+function setOut(el, text, kind) {
+  el.textContent = text;
+  el.className = 'out ' + (kind || '');
 }
 
 async function api(path, options) {
@@ -63,12 +71,13 @@ async function api(path, options) {
   const res = await fetch(path, Object.assign({ headers, credentials: 'omit', cache: 'no-store' }, options || {}));
   let body = null;
   try { body = await res.json(); } catch (e) { body = null; }
+  if (res.status === 401 && claims) logout('Tu sesión venció o no es válida. Vuelve a iniciar sesión.');
   return { status: res.status, body };
 }
 function errorText(status, body) {
-  if (status === 401) return 'No autorizado: falta el token o no es válido (401).';
+  if (status === 401) return 'No autorizado: inicia sesión de nuevo (401).';
   if (status === 403) return 'Tu rol no permite esta acción (403).';
-  if (status === 409) return 'Ese RUN ya está registrado (409).';
+  if (status === 409) return 'Ese RUN ya está registrado (409). Búscalo en la lista.';
   if (status === 422) {
     const first = body && Array.isArray(body.detail) && body.detail[0];
     const field = first && first.loc ? first.loc[first.loc.length - 1] : 'los datos';
@@ -78,17 +87,82 @@ function errorText(status, body) {
   return 'Error inesperado (' + status + ').';
 }
 
-// ---------- registro ----------
-function setOut(el, text, kind) {
-  el.textContent = text;
-  el.className = 'out ' + (kind || '');
+async function onLogin(e) {
+  e.preventDefault();
+  const out = $('loginOut');
+  const candidate = $('token').value.trim();
+  const c = decodeClaims(candidate);
+  if (!candidate || !c) { setOut(out, 'La credencial no tiene un formato válido.', 'bad'); return; }
+  if (c.exp && c.exp * 1000 <= Date.now()) { setOut(out, 'La credencial ya venció. Pide una nueva a IAM.', 'bad'); return; }
+  $('loginBtn').disabled = true;
+  setOut(out, 'Verificando con el servidor…', '');
+  token = candidate;
+  try {
+    // La verificación real (firma, emisor, audiencia, vigencia y rol) la hace la API.
+    const r = await api('/patients?page_size=1');
+    if (r.status === 200) {
+      enterApp(c);
+    } else {
+      token = '';
+      setOut(out, r.status === 401 ? 'Credencial rechazada por el servidor (401).' : r.status === 403 ? 'Tu rol no tiene acceso a PAC (403).' : errorText(r.status, r.body), 'bad');
+    }
+  } catch (err) {
+    token = '';
+    setOut(out, 'No se pudo conectar con el servidor.', 'bad');
+  } finally {
+    $('loginBtn').disabled = false;
+  }
 }
+
+function enterApp(c) {
+  claims = c;
+  try { sessionStorage.setItem('pac_token', token); } catch (err) { /* modo privado */ }
+  $('token').value = '';
+  setOut($('loginOut'), '', '');
+  const sub = String(c.sub || 'usuario');
+  $('userName').textContent = sub;
+  $('avatar').textContent = sub.charAt(0).toUpperCase();
+  $('userRole').textContent = roleLabel(c);
+  const canWrite = Array.isArray(c.roles) && c.roles.includes('pac:write');
+  $('regBtn').disabled = !canWrite;
+  if (!canWrite) setOut($('regOut'), 'Tu sesión es de solo lectura: puedes buscar, pero no registrar.', '');
+  $('login').hidden = true;
+  $('app').hidden = false;
+  updateExpiry();
+  clearInterval(expiryTimer);
+  expiryTimer = setInterval(updateExpiry, 30000);
+  lastQuery = {};
+  search(1);
+}
+function updateExpiry() {
+  if (!claims || !claims.exp) { $('expires').textContent = 'Sesión activa'; return; }
+  const ms = claims.exp * 1000 - Date.now();
+  if (ms <= 0) { logout('Tu sesión venció. Vuelve a iniciar sesión.'); return; }
+  const min = Math.floor(ms / 60000);
+  $('expires').textContent = 'Sesión vence en ' + (min >= 60 ? Math.floor(min / 60) + ' h ' + (min % 60) + ' min' : min + ' min');
+}
+function logout(message) {
+  token = '';
+  claims = null;
+  clearInterval(expiryTimer);
+  try { sessionStorage.removeItem('pac_token'); } catch (err) { /* modo privado */ }
+  $('regForm').reset();
+  onRunInput();
+  setOut($('regOut'), '', '');
+  $('results').replaceChildren();
+  $('app').hidden = true;
+  $('login').hidden = false;
+  setOut($('loginOut'), message || 'Sesión cerrada.', message ? 'bad' : 'ok');
+  $('token').focus();
+}
+
+// ---------- registro ----------
 function onRunInput() {
   const input = $('run');
   const formatted = formatRun(input.value);
   if (formatted !== input.value) input.value = formatted;
   const st = runStatus(input.value);
-  $('runMsg').textContent = st.msg;
+  $('runMsg').textContent = input.value ? st.msg : 'Se valida el dígito verificador (Módulo 11) mientras escribes.';
   $('runMsg').className = 'msg ' + (input.value ? (st.ok ? 'ok' : 'bad') : '');
   input.setAttribute('aria-invalid', String(!st.ok && !!input.value));
 }
@@ -104,98 +178,130 @@ async function onRegister(e) {
     if (v) data[name] = v;
   }
   for (const name of ['nombres', 'apellido_paterno', 'fecha_nacimiento', 'prevision']) {
-    if (!data[name]) { setOut(out, 'Completa el campo obligatorio: ' + $(name).labels[0].textContent + '.', 'bad'); $(name).focus(); return; }
+    if (!data[name]) { setOut(out, 'Completa el campo obligatorio: ' + $(name).labels[0].textContent.replace('*', '').trim() + '.', 'bad'); $(name).focus(); return; }
   }
   $('regBtn').disabled = true;
   setOut(out, 'Registrando…', '');
   try {
     const r = await api('/patients', { method: 'POST', body: JSON.stringify(data) });
     if (r.status === 201) {
-      setOut(out, 'Paciente registrado con ID ' + r.body.id + ' (RUN ' + r.body.run + ').', 'ok');
+      setOut(out, 'Paciente registrado con ID ' + r.body.id + ' (RUN ' + formatRun(r.body.run) + ').', 'ok');
       $('regForm').reset();
       onRunInput();
+      search(page);
     } else {
       setOut(out, errorText(r.status, r.body), 'bad');
     }
   } catch (err) {
     setOut(out, 'No se pudo conectar con el servidor.', 'bad');
   } finally {
-    $('regBtn').disabled = false;
+    $('regBtn').disabled = !(claims && Array.isArray(claims.roles) && claims.roles.includes('pac:write'));
   }
 }
 
 // ---------- búsqueda paginada ----------
-function renderRows(items) {
+function ageText(isoDate) {
+  const d = new Date(isoDate + 'T00:00:00');
+  if (isNaN(d)) return isoDate;
+  const now = new Date();
+  let age = now.getFullYear() - d.getFullYear();
+  if (now < new Date(now.getFullYear(), d.getMonth(), d.getDate())) age--;
+  return age + ' años';
+}
+function messageRow(text) {
   const tbody = $('results');
   tbody.replaceChildren();
-  if (!items.length) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = 4; td.className = 'empty'; td.textContent = 'Sin resultados.';
-    tr.appendChild(td); tbody.appendChild(tr);
-    return;
-  }
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.colSpan = 4; td.className = 'empty'; td.textContent = text;
+  tr.appendChild(td); tbody.appendChild(tr);
+}
+function renderRows(items) {
+  if (!items.length) { messageRow('Sin resultados. Si el paciente no existe, regístralo en el formulario.'); return; }
+  const tbody = $('results');
+  tbody.replaceChildren();
   for (const p of items) {
     const tr = document.createElement('tr');
-    const cells = [
-      formatRun(p.run),
-      [p.nombres, p.apellido_paterno, p.apellido_materno].filter(Boolean).join(' '),
-      p.fecha_nacimiento,
-      p.prevision,
-    ];
-    for (const text of cells) {
+    const add = (text, cls) => {
       const td = document.createElement('td');
+      if (cls) td.className = cls;
       td.textContent = text;
       tr.appendChild(td);
-    }
+      return td;
+    };
+    add(formatRun(p.run), 'mono');
+    add([p.nombres, p.apellido_paterno, p.apellido_materno].filter(Boolean).join(' '));
+    add(ageText(p.fecha_nacimiento));
+    const td = add('');
+    const badge = document.createElement('span');
+    badge.className = 'badge ' + (/^[A-Z]+$/.test(p.prevision) ? p.prevision : '');
+    badge.textContent = p.prevision;
+    td.appendChild(badge);
     tbody.appendChild(tr);
   }
 }
 async function search(newPage) {
-  if (!lastQuery) return;
+  if (!claims) return;
   const params = new URLSearchParams(lastQuery);
   params.set('page', String(newPage));
   params.set('page_size', String(PAGE_SIZE));
-  const r = await api('/patients?' + params.toString());
+  let r;
+  try { r = await api('/patients?' + params.toString()); } catch (e) { messageRow('No se pudo conectar con el servidor.'); return; }
+  if (!claims) return;
   if (r.status !== 200) {
-    renderRows([]);
-    $('results').firstChild.firstChild.textContent = errorText(r.status, r.body);
+    messageRow(errorText(r.status, r.body));
     $('prev').disabled = true; $('next').disabled = true;
     return;
   }
   page = newPage;
   renderRows(r.body.items);
   const pages = Math.max(1, Math.ceil(r.body.total / PAGE_SIZE));
-  $('pageInfo').textContent = 'Página ' + page + ' de ' + pages + ' · ' + r.body.total + ' pacientes';
+  $('pageInfo').textContent = 'Página ' + page + ' de ' + pages + ' · ' + r.body.total + (r.body.total === 1 ? ' paciente' : ' pacientes');
   $('prev').disabled = page <= 1;
   $('next').disabled = page >= pages;
 }
 function onSearch(e) {
   e.preventDefault();
   const q = {};
+  const runRaw = $('s_run').value.trim();
+  if (runRaw) {
+    const st = runStatus(runRaw);
+    if (!st.ok) { $('sRunMsg').textContent = st.msg; $('sRunMsg').className = 'msg bad'; $('s_run').focus(); return; }
+    q.run = st.normalized;
+  }
+  $('sRunMsg').textContent = 'Búsqueda exacta, la forma más segura de identificar al paciente.';
+  $('sRunMsg').className = 'msg';
   const pat = $('s_paterno').value.trim();
-  const run = cleanRun($('s_run').value);
+  const mat = $('s_materno').value.trim();
   const prev = $('s_prev').value;
   if (pat) q.apellido_paterno = pat;
-  if (run) q.run = run.slice(0, -1) + '-' + run.slice(-1);
+  if (mat) q.apellido_materno = mat;
   if (prev) q.prevision = prev;
   lastQuery = q;
   search(1);
 }
+function onClear() {
+  $('searchForm').reset();
+  $('sRunMsg').textContent = 'Búsqueda exacta, la forma más segura de identificar al paciente.';
+  $('sRunMsg').className = 'msg';
+  lastQuery = {};
+  search(1);
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-  $('token').value = token;
-  showSession();
-  $('tokenForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    token = $('token').value.trim();
-    try { sessionStorage.setItem('pac_token', token); } catch (err) { /* modo privado */ }
-    showSession();
-  });
+  $('today').textContent = new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  $('loginForm').addEventListener('submit', onLogin);
+  $('logoutBtn').addEventListener('click', () => logout());
   $('run').addEventListener('input', onRunInput);
   $('s_run').addEventListener('input', () => { $('s_run').value = formatRun($('s_run').value); });
   $('regForm').addEventListener('submit', onRegister);
+  $('resetBtn').addEventListener('click', () => setTimeout(() => { onRunInput(); setOut($('regOut'), '', ''); }, 0));
   $('searchForm').addEventListener('submit', onSearch);
+  $('clearBtn').addEventListener('click', onClear);
   $('prev').addEventListener('click', () => search(page - 1));
   $('next').addEventListener('click', () => search(page + 1));
+  // Si la pestaña ya tenía una sesión vigente, se vuelve a verificar con el servidor.
+  let saved = '';
+  try { saved = sessionStorage.getItem('pac_token') || ''; } catch (err) { saved = ''; }
+  if (saved) { $('token').value = saved; $('loginForm').requestSubmit(); } else { $('token').focus(); }
 });

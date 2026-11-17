@@ -8,82 +8,132 @@
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <header class="top">
-    <div class="wrap">
-      <div class="brand">MediNet-Core <span>· Admisión de pacientes (PAC)</span></div>
-      <form id="tokenForm" class="token" autocomplete="off">
-        <label for="token">Sesión IAM</label>
-        <input id="token" type="password" placeholder="Pega aquí tu token JWT" spellcheck="false">
-        <button type="submit">Usar</button>
-        <span id="who" class="who">Sin sesión</span>
+  <!-- ===== Pantalla de inicio de sesión ===== -->
+  <section id="login" class="login" aria-labelledby="t-login">
+    <div class="login-card">
+      <div class="brand big">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0f6e8c"/><path d="M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z" fill="#fff"/></svg>
+        <div><div class="name">MediNet-Core</div><div class="tag">Hospital Clínico · Sistema de información clínica</div></div>
+      </div>
+      <h1 id="t-login">Iniciar sesión</h1>
+      <p class="lead">Acceso al módulo de <b>Pacientes y admisión (PAC)</b>. La identidad la entrega el módulo <b>IAM</b> de MediNet-Core.</p>
+      <form id="loginForm" autocomplete="off" novalidate>
+        <div class="field">
+          <label for="token">Credencial emitida por IAM</label>
+          <input id="token" type="password" placeholder="Pega aquí tu token de acceso" spellcheck="false" required>
+        </div>
+        <button id="loginBtn" class="primary wide" type="submit">Ingresar</button>
+        <p id="loginOut" class="out" role="status"></p>
       </form>
+      <div class="login-note">
+        <p><span class="dot"></span>PAC no guarda contraseñas: solo verifica la firma, el emisor, la vigencia y el rol de la credencial.</p>
+        <p><span class="dot"></span>La sesión se cierra sola cuando la credencial vence.</p>
+      </div>
     </div>
-  </header>
+    <p class="login-foot">Uso exclusivo del personal autorizado · Cada acceso queda registrado (Ley 20.584)</p>
+  </section>
 
-  <main class="wrap grid">
-    <section class="card" aria-labelledby="t-reg">
-      <h1 id="t-reg">Registrar paciente</h1>
-      <form id="regForm" novalidate>
-        <div class="field">
-          <label for="run">RUN</label>
-          <input id="run" name="run" inputmode="text" maxlength="12" placeholder="12.345.678-5" required>
-          <small id="runMsg" class="msg">Escribe el RUN; se valida el dígito verificador (Módulo 11) mientras escribes.</small>
-        </div>
-        <div class="row">
-          <div class="field"><label for="nombres">Nombres</label><input id="nombres" name="nombres" maxlength="100" required></div>
-          <div class="field"><label for="apellido_paterno">Apellido paterno</label><input id="apellido_paterno" name="apellido_paterno" maxlength="60" required></div>
-        </div>
-        <div class="row">
-          <div class="field"><label for="apellido_materno">Apellido materno</label><input id="apellido_materno" name="apellido_materno" maxlength="60"></div>
-          <div class="field"><label for="fecha_nacimiento">Fecha de nacimiento</label><input id="fecha_nacimiento" name="fecha_nacimiento" type="date" required></div>
-        </div>
-        <div class="row">
-          <div class="field">
-            <label for="prevision">Previsión de salud</label>
-            <select id="prevision" name="prevision" required>
-              <option value="">Selecciona…</option>
-              <option value="FONASA">Fonasa</option>
-              <option value="ISAPRE">Isapre</option>
-              <option value="CAPREDENA">Capredena</option>
-              <option value="DIPRECA">Dipreca</option>
-            </select>
+  <!-- ===== Aplicación ===== -->
+  <div id="app" hidden>
+    <header class="top">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0f6e8c"/><path d="M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z" fill="#fff"/></svg>
+        <div><div class="name">MediNet-Core</div><div class="tag">Hospital Clínico · Sistema de información clínica</div></div>
+      </div>
+      <div class="user">
+        <div class="avatar" id="avatar" aria-hidden="true">A</div>
+        <div class="user-txt"><b id="userName">usuario</b><small id="userRole">rol</small></div>
+        <span id="expires" class="who on">Sesión activa</span>
+        <button id="logoutBtn" type="button">Cerrar sesión</button>
+      </div>
+    </header>
+    <main class="main">
+        <div class="crumbs">Inicio › Admisión › <b>Pacientes</b></div>
+        <div class="page-head">
+          <div>
+            <h1>Admisión de pacientes</h1>
+            <p class="lead">Busca primero por RUN para no duplicar fichas; si el paciente no existe, regístralo.</p>
           </div>
-          <div class="field"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" maxlength="15" inputmode="tel"></div>
+          <div class="unit"><b>Unidad de Admisión</b><small id="today">—</small></div>
         </div>
-        <div class="row">
-          <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" maxlength="254"></div>
-          <div class="field"><label for="direccion">Dirección</label><input id="direccion" name="direccion" maxlength="200"></div>
-        </div>
-        <button id="regBtn" class="primary" type="submit">Registrar</button>
-        <p id="regOut" class="out" role="status"></p>
-      </form>
-    </section>
 
-    <section class="card" aria-labelledby="t-search">
-      <h2 id="t-search">Buscar pacientes</h2>
-      <form id="searchForm" class="row" novalidate>
-        <div class="field"><label for="s_paterno">Apellido paterno</label><input id="s_paterno" maxlength="60" placeholder="Prefijo, ej: Muñ"></div>
-        <div class="field"><label for="s_run">RUN exacto</label><input id="s_run" maxlength="12" placeholder="12.345.678-5"></div>
-        <div class="field">
-          <label for="s_prev">Previsión</label>
-          <select id="s_prev"><option value="">Todas</option><option value="FONASA">Fonasa</option><option value="ISAPRE">Isapre</option><option value="CAPREDENA">Capredena</option><option value="DIPRECA">Dipreca</option></select>
-        </div>
-        <div class="field btn-end"><button class="primary" type="submit">Buscar</button></div>
-      </form>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>RUN</th><th>Nombre</th><th>Nacimiento</th><th>Previsión</th></tr></thead>
-          <tbody id="results"><tr><td colspan="4" class="empty">Busca por apellido, RUN o previsión.</td></tr></tbody>
-        </table>
-      </div>
-      <div class="pager">
-        <button id="prev" type="button" disabled>Anterior</button>
-        <span id="pageInfo">Página 1</span>
-        <button id="next" type="button" disabled>Siguiente</button>
-      </div>
-    </section>
-  </main>
+        <div class="grid">
+          <section class="card" aria-labelledby="t-search">
+            <div class="card-head"><h2 id="t-search">1 · Buscar paciente</h2><span class="chip">Paginado</span></div>
+            <form id="searchForm" class="filters" novalidate>
+              <div class="field span2"><label for="s_run">RUN</label><input id="s_run" maxlength="12" placeholder="12.345.678-5"><small id="sRunMsg" class="msg">Búsqueda exacta, la forma más segura de identificar al paciente.</small></div>
+              <div class="field"><label for="s_paterno">Apellido paterno</label><input id="s_paterno" maxlength="60" placeholder="Ej: Muñ"></div>
+              <div class="field"><label for="s_materno">Apellido materno</label><input id="s_materno" maxlength="60" placeholder="Ej: Ro"></div>
+              <div class="field">
+                <label for="s_prev">Previsión</label>
+                <select id="s_prev"><option value="">Todas</option><option value="FONASA">Fonasa</option><option value="ISAPRE">Isapre</option><option value="CAPREDENA">Capredena</option><option value="DIPRECA">Dipreca</option></select>
+              </div>
+              <div class="field btn-row"><button id="clearBtn" type="button">Limpiar</button><button class="primary" type="submit">Buscar</button></div>
+            </form>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>RUN</th><th>Paciente</th><th>Edad</th><th>Previsión</th></tr></thead>
+                <tbody id="results"><tr><td colspan="4" class="empty">Cargando pacientes…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="pager">
+              <button id="prev" type="button" disabled>‹ Anterior</button>
+              <span id="pageInfo">Página 1</span>
+              <button id="next" type="button" disabled>Siguiente ›</button>
+            </div>
+          </section>
 
-  <footer class="wrap foot">Módulo PAC · Grupo 6 · Los datos clínicos viajan solo por HTTPS y cada acceso queda auditado.</footer>
+          <section class="card" aria-labelledby="t-reg">
+            <div class="card-head"><h2 id="t-reg">2 · Registrar paciente</h2><span class="chip">Nuevo ingreso</span></div>
+            <form id="regForm" novalidate>
+              <fieldset>
+                <legend>Identificación</legend>
+                <div class="field">
+                  <label for="run">RUN <em>*</em></label>
+                  <input id="run" name="run" inputmode="text" maxlength="12" placeholder="12.345.678-5" required>
+                  <small id="runMsg" class="msg">Se valida el dígito verificador (Módulo 11) mientras escribes.</small>
+                </div>
+                <div class="row">
+                  <div class="field"><label for="nombres">Nombres <em>*</em></label><input id="nombres" name="nombres" maxlength="100" required></div>
+                  <div class="field"><label for="fecha_nacimiento">Fecha de nacimiento <em>*</em></label><input id="fecha_nacimiento" name="fecha_nacimiento" type="date" required></div>
+                </div>
+                <div class="row">
+                  <div class="field"><label for="apellido_paterno">Apellido paterno <em>*</em></label><input id="apellido_paterno" name="apellido_paterno" maxlength="60" required></div>
+                  <div class="field"><label for="apellido_materno">Apellido materno</label><input id="apellido_materno" name="apellido_materno" maxlength="60"></div>
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend>Previsión y contacto</legend>
+                <div class="row">
+                  <div class="field">
+                    <label for="prevision">Previsión de salud <em>*</em></label>
+                    <select id="prevision" name="prevision" required>
+                      <option value="">Selecciona…</option>
+                      <option value="FONASA">Fonasa</option>
+                      <option value="ISAPRE">Isapre</option>
+                      <option value="CAPREDENA">Capredena</option>
+                      <option value="DIPRECA">Dipreca</option>
+                    </select>
+                  </div>
+                  <div class="field"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" maxlength="15" inputmode="tel" placeholder="+56912345678"></div>
+                </div>
+                <div class="row">
+                  <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" maxlength="254"></div>
+                  <div class="field"><label for="direccion">Dirección</label><input id="direccion" name="direccion" maxlength="200"></div>
+                </div>
+              </fieldset>
+              <div class="actions">
+                <button id="regBtn" class="primary" type="submit">Registrar paciente</button>
+                <button id="resetBtn" type="reset">Limpiar</button>
+                <span class="req"><em>*</em> obligatorio</span>
+              </div>
+              <p id="regOut" class="out" role="status"></p>
+            </form>
+          </section>
+        </div>
+
+        <footer class="foot">MediNet-Core · Módulo PAC (Grupo 6) · Datos de salud protegidos según Ley 20.584 y Ley 19.628 · Cada acceso queda registrado.</footer>
+      </main>
+  </div>
 </body>
 </html>
