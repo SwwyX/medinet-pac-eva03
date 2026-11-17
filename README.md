@@ -10,7 +10,7 @@ Frontend y API de pacientes desplegados en AWS en alta disponibilidad (2 zonas),
 - `frontend/` página de admisión (registro con validación de RUN, búsqueda paginada) servida por nginx sin privilegios
 - `infra/` infraestructura en Terraform
 - `tests/` pruebas
-- `tools/` scripts de ataque, failover y capturas
+- `tools/` ataque controlado, failover, escaneo ZAP y tokens de prueba
 - `docs/` evidencias
 
 ## Desplegar
