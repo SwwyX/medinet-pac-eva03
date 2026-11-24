@@ -1,6 +1,6 @@
-# MediNet-Core · Módulo PAC · EVA03
+# MediNet-Core · Módulo PAC 
 
-Grupo 6 · Desarrollo Seguro (CI3064) · INACAP Temuco
+Grupo 6 · Desarrollo Seguro (CI3064) 
 
 Frontend y API de pacientes desplegados en AWS en alta disponibilidad (2 zonas), creados con Terraform.
 
