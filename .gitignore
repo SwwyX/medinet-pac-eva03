@@ -20,3 +20,6 @@ evidence/
 # Paquete de entrega (se sube aparte a la plataforma)
 entrega/
 estudio/
+
+# Archivo temporal de tools/paciente.py
+tools/run_failover.txt
