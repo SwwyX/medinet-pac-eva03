@@ -19,8 +19,8 @@ output "ecr_repository_url" {
   value = aws_ecr_repository.pac.repository_url
 }
 
-output "instance_ids" {
-  value = aws_instance.pac[*].id
+output "autoscaling_group_name" {
+  value = aws_autoscaling_group.pac.name
 }
 
 output "image_tag_parameter" {
