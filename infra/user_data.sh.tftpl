@@ -15,7 +15,11 @@ TAG=$(aws ssm get-parameter --region "$REGION" --with-decryption --name "/${proj
 if [ "$TAG" = "none" ]; then echo "Aun no hay imagen publicada en ECR"; exit 0; fi
 IMAGE="${ecr_repository}:$TAG"
 TOKEN=$(curl -s -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
-NODE=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/tags/instance/NodeId || echo node)
+NODE=$(curl -sf -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/tags/instance/NodeId || true)
+if [ -z "$NODE" ]; then
+  IID_N=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+  NODE="node-$${IID_N: -4}"
+fi
 
 # Secretos en memoria (tmpfs), legibles solo por el usuario del contenedor (10001).
 SECRETS=/run/pac-secrets
